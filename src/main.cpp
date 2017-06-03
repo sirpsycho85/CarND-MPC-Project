@@ -92,36 +92,39 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          // TODO: convert coordinates?
+          // comment from forum: "I've used minus sign for the returned delta to get correct steering angle."
+          /*
+          Remember that the server returns waypoints using the map's coordinate system,
+          which is different than the car's coordinate system.
+          Transforming these waypoints will make it easier to both display them
+          and to calculate the CTE and Epsi values for the model predictive controller.
+
+          Why? x and ptsx are both in global coordinates.
+          */
           // convert vector to eigen vectorxd
           Eigen::VectorXd ptsx_eigen(ptsx.size());
           Eigen::VectorXd ptsy_eigen(ptsy.size());
           for(int i = 0; i < ptsx.size(); ++i) {
-            cout << "converting to eigen\n";
             ptsx_eigen[i] = ptsx[i];
             ptsy_eigen[i] = ptsy[i];
           }
-          cout << "converted to eigen\n";
           // fit polynomial based on waypoints
           auto coeffs = polyfit(ptsx_eigen,ptsy_eigen,3);
-          cout << "completed polyfit\n";
 
           // determine current errors to add to state
           double cte = polyeval(coeffs, x) - y;
           double epsi = atan(coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x);
-          cout << "calculated cte and epsi\n";
 
           // specify current state
           Eigen::VectorXd state(6);
           state << x, y, psi, v, cte, epsi;
-          cout << "defined state\n";
 
           // solve it!
           auto vars = mpc.Solve(state, coeffs);
-          cout << "completed solver\n";
 
           double steer_value = vars[0]/deg2rad(25);
           double throttle_value = vars[1];
-          cout << "obtained actuations\n";
 
           json msgJson;
           
@@ -158,7 +161,7 @@ int main() {
           // Feel free to play around with this value but should be to drive
           // around the track with 100ms latency.
           //
-          // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
+          // TODO: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
           this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
