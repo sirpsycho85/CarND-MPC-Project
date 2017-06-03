@@ -35,7 +35,7 @@ string hasData(string s) {
 // Evaluate a polynomial.
 double polyeval(Eigen::VectorXd coeffs, double x) {
   double result = 0.0;
-  for (int i = 0; i < coeffs.size(); i++) {
+  for (int i = 0; i < coeffs.size(); ++i) {
     result += coeffs[i] * pow(x, i);
   }
   return result;
@@ -87,23 +87,44 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
-          double px = j[1]["x"];
-          double py = j[1]["y"];
+          double x = j[1]["x"];
+          double y = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          /*
-          * TODO: Calculate steeering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
-          double steer_value;
-          double throttle_value;
+          // convert vector to eigen vectorxd
+          Eigen::VectorXd ptsx_eigen(ptsx.size());
+          Eigen::VectorXd ptsy_eigen(ptsy.size());
+          for(int i = 0; i < ptsx.size(); ++i) {
+            cout << "converting to eigen\n";
+            ptsx_eigen[i] = ptsx[i];
+            ptsy_eigen[i] = ptsy[i];
+          }
+          cout << "converted to eigen\n";
+          // fit polynomial based on waypoints
+          auto coeffs = polyfit(ptsx_eigen,ptsy_eigen,3);
+          cout << "completed polyfit\n";
+
+          // determine current errors to add to state
+          double cte = polyeval(coeffs, x) - y;
+          double epsi = atan(coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x);
+          cout << "calculated cte and epsi\n";
+
+          // specify current state
+          Eigen::VectorXd state(6);
+          state << x, y, psi, v, cte, epsi;
+          cout << "defined state\n";
+
+          // solve it!
+          auto vars = mpc.Solve(state, coeffs);
+          cout << "completed solver\n";
+
+          double steer_value = vars[0]/deg2rad(25);
+          double throttle_value = vars[1];
+          cout << "obtained actuations\n";
 
           json msgJson;
-          // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
-          // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
+          
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
