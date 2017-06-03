@@ -12,6 +12,8 @@
 // for convenience
 using json = nlohmann::json;
 
+
+
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
@@ -66,18 +68,33 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
 }
 
 int main() {
+
   uWS::Hub h;
 
   // MPC is initialized here!
   MPC mpc;
 
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  int N = mpc.N_;
+
+  size_t x_start = 0;
+  size_t y_start = x_start + N;
+  size_t psi_start = y_start + N;
+  size_t v_start = psi_start + N;
+  size_t cte_start = v_start + N;
+  size_t epsi_start = cte_start + N;
+  size_t delta_start = epsi_start + N;
+  size_t a_start = delta_start + N - 1;
+
+  h.onMessage([&](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
+
+    // cout << "\nstart of a new message\n";
+
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    //cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
       if (s != "") {
@@ -92,39 +109,63 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          // TODO: convert coordinates?
-          // comment from forum: "I've used minus sign for the returned delta to get correct steering angle."
-          /*
-          Remember that the server returns waypoints using the map's coordinate system,
-          which is different than the car's coordinate system.
-          Transforming these waypoints will make it easier to both display them
-          and to calculate the CTE and Epsi values for the model predictive controller.
+          vector<double> ptsx_car;
+          vector<double> ptsy_car;
+          for(int i = 0; i < ptsx.size(); ++i) {
+            ptsx_car.push_back( (ptsx[i] - x) * cos(psi) + (ptsy[i] - y) * sin(psi) );
+            ptsy_car.push_back( (ptsy[i] - y) * cos(psi) - (ptsx[i] - x) * sin(psi) );
+          }
 
-          Why? x and ptsx are both in global coordinates.
-          */
-          // convert vector to eigen vectorxd
           Eigen::VectorXd ptsx_eigen(ptsx.size());
           Eigen::VectorXd ptsy_eigen(ptsy.size());
           for(int i = 0; i < ptsx.size(); ++i) {
-            ptsx_eigen[i] = ptsx[i];
-            ptsy_eigen[i] = ptsy[i];
+            ptsx_eigen[i] = ptsx_car[i];
+            ptsy_eigen[i] = ptsy_car[i];
           }
+
           // fit polynomial based on waypoints
           auto coeffs = polyfit(ptsx_eigen,ptsy_eigen,3);
 
           // determine current errors to add to state
-          double cte = polyeval(coeffs, x) - y;
-          double epsi = atan(coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x);
+          // double cte = polyeval(coeffs, x) - y;
+          // double epsi = atan(coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x);
+
+          // in car space, current x and y are zero
+          double cte = polyeval(coeffs, 0);
+          double epsi = atan(coeffs[1]);
 
           // specify current state
           Eigen::VectorXd state(6);
-          state << x, y, psi, v, cte, epsi;
+          // state << x, y, psi, v, cte, epsi;
+          // but in car space...
+          state << 0, 0, 0, v, cte, epsi;
+
+          
+          // cout << "coeffs:";
+          // for(int i = 0; i < coeffs.size(); ++i) {
+          //   cout << "\t" << coeffs[i];
+          // }
+          // cout << endl;
+
+          // cout << "state:";
+          // for(int i = 0; i < state.size(); ++i) {
+          //   cout << "\t" << state[i];
+          // }
+          // cout << endl;
 
           // solve it!
+
           auto vars = mpc.Solve(state, coeffs);
 
-          double steer_value = vars[0]/deg2rad(25);
-          double throttle_value = vars[1];
+          // double steer_value = vars[0]/deg2rad(25);
+          // double throttle_value = vars[1];
+
+          // using entire solution
+          double steer_value = -1 * vars[delta_start]/deg2rad(25);
+          double throttle_value = vars[a_start];
+
+          // steer_value = 0;
+          // throttle_value = vars[a_start];
 
           json msgJson;
           
@@ -138,12 +179,18 @@ int main() {
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
+          for(int i = 0; i < N; ++i) {
+            mpc_x_vals.push_back(vars[x_start + i]);
+            mpc_y_vals.push_back(vars[y_start + i]);
+          }
+
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
-          //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+          //Display the waypoints
+          vector<double> next_x_vals = ptsx_car;
+          vector<double> next_y_vals = ptsy_car;
+          //Or I could display the reference line by sampling from the poly...
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
@@ -153,7 +200,8 @@ int main() {
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          // std::cout << msg << std::endl;
+
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.
@@ -163,7 +211,7 @@ int main() {
           //
           // TODO: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(0));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

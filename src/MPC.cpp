@@ -32,29 +32,39 @@ class FG_eval {
 
   typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
   void operator()(ADvector& fg, const ADvector& vars) {
-    // TODO: implement MPC
+    // MPC
     // fg a vector of constraints, x is a vector of constraints.
     // The cost is stored is the first element of `fg`.
     fg[0] = 0;
+    AD<double> cost_delta = 0;
 
     // The part of the cost based on the reference state.
     for (int i = 0; i < N; i++) {
       fg[0] += CppAD::pow(vars[cte_start + i] - ref_cte, 2);
-      fg[0] += CppAD::pow(vars[epsi_start + i] - ref_epsi, 2);
+      fg[0] += 10*CppAD::pow(vars[epsi_start + i] - ref_epsi, 2);
       fg[0] += CppAD::pow(vars[v_start + i] - ref_v, 2);
     }
 
+    cost_delta = fg[0] - cost_delta;
+    cout << "cost based on the reference state: " << cost_delta << endl;
+
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++) {
-      fg[0] += 100 * CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += CppAD::pow(vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i], 2);
     }
 
+    cost_delta = fg[0] - cost_delta;
+    // cout << "cost based on use of actuators: " << cost_delta << endl;
+
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += 100 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
+
+    cost_delta = fg[0] - cost_delta;
+    // cout << "cost based on gap between sequential actuations: " << cost_delta << endl;
 
     // Initial constraints
     //
@@ -118,7 +128,25 @@ class FG_eval {
 //
 // MPC class definition implementation.
 //
-MPC::MPC() {}
+MPC::MPC() {
+N_ = N;
+dt_ = dt;
+
+// double ref_cte = 0;
+// double ref_epsi = 0;
+// double ref_v = 20;
+
+// const double Lf = 2.67;
+
+// size_t x_start = 0;
+// size_t y_start = x_start + N;
+// size_t psi_start = y_start + N;
+// size_t v_start = psi_start + N;
+// size_t cte_start = v_start + N;
+// size_t epsi_start = cte_start + N;
+// size_t delta_start = epsi_start + N;
+// size_t a_start = delta_start + N - 1;
+}
 MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
@@ -225,12 +253,21 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
 
   // Cost
   auto cost = solution.obj_value;
-  std::cout << "Cost " << cost << std::endl;
+  // std::cout << "Cost " << cost << std::endl;
 
   // Return the first actuator values. The variables can be accessed with
   // `solution.x[i]`.
   //
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
-  return {solution.x[delta_start],solution.x[a_start]};
+
+  // return {solution.x[delta_start],solution.x[a_start]};
+
+  // return entire solution
+  vector<double> vars_from_solution;
+  for(int i = 0; i < solution.x.size(); ++i) {
+    vars_from_solution.push_back(solution.x[i]);
+  }
+
+  return vars_from_solution;
 }
