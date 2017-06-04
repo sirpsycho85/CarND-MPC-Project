@@ -114,15 +114,6 @@ int main() {
           double acceleration = j[1]["throttle"];
 
 
-          // update state to 100ms in the future for latency
-          double latency = 0.1;
-          x = x + v*cos(psi)*latency;
-          y = y + v*sin(psi)*latency;
-          psi = psi + v*delta/Lf*latency;
-          v = v + acceleration*latency;
-          // FUTURE: should acceleration be in same scale as velocity, not 0 to 1?
-
-
           vector<double> ptsx_car;
           vector<double> ptsy_car;
           for(int i = 0; i < ptsx.size(); ++i) {
@@ -144,6 +135,19 @@ int main() {
           // determine current errors to add to state
           // double cte = polyeval(coeffs, x) - y;
           // double epsi = atan(coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x);
+
+          // update state to 100ms in the future for latency
+          x = 0;
+          y = 0;
+          psi = 0;
+          
+          long latency_ms = 100;
+          double latency_s = latency_ms/1000;
+          x = x + v*cos(psi)*latency_s;
+          y = y + v*sin(psi)*latency_s;
+          psi = psi + v*delta/Lf*latency_s;
+          v = v + acceleration*latency_s;
+          // FUTURE: should acceleration be in same scale as velocity, not 0 to 1?
 
 
 
@@ -227,7 +231,8 @@ int main() {
           //
           // TODO: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          
+          this_thread::sleep_for(chrono::milliseconds(latency_ms));
           //FUTURE: how to not hardcode the # of milliseconds...
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
