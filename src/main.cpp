@@ -75,6 +75,8 @@ int main() {
   MPC mpc;
 
   int N = mpc.N_;
+  double dt = mpc.dt_;
+  double Lf = mpc.Lf_;
 
   size_t x_start = 0;
   size_t y_start = x_start + N;
@@ -108,6 +110,18 @@ int main() {
           double y = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double delta = j[1]["steering_angle"];
+          double acceleration = j[1]["throttle"];
+
+
+          // update state to 100ms in the future for latency
+          double latency = 0.1;
+          x = x + v*cos(psi)*latency;
+          y = y + v*sin(psi)*latency;
+          psi = psi + v*delta/Lf*latency;
+          v = v + acceleration*latency;
+          // FUTURE: should acceleration be in same scale as velocity, not 0 to 1?
+
 
           vector<double> ptsx_car;
           vector<double> ptsy_car;
@@ -115,6 +129,7 @@ int main() {
             ptsx_car.push_back( (ptsx[i] - x) * cos(psi) + (ptsy[i] - y) * sin(psi) );
             ptsy_car.push_back( (ptsy[i] - y) * cos(psi) - (ptsx[i] - x) * sin(psi) );
           }
+
 
           Eigen::VectorXd ptsx_eigen(ptsx.size());
           Eigen::VectorXd ptsy_eigen(ptsy.size());
@@ -130,15 +145,16 @@ int main() {
           // double cte = polyeval(coeffs, x) - y;
           // double epsi = atan(coeffs[1] + 2*coeffs[2]*x + 3*coeffs[3]*x*x);
 
+
+
           // in car space, current x and y are zero
           double cte = polyeval(coeffs, 0);
           double epsi = atan(coeffs[1]);
 
+
           // specify current state
           Eigen::VectorXd state(6);
-          // state << x, y, psi, v, cte, epsi;
-          // but in car space...
-          state << 0, 0, 0, v, cte, epsi;
+          state << x, y, psi, v, cte, epsi;
 
           
           // cout << "coeffs:";
@@ -211,7 +227,8 @@ int main() {
           //
           // TODO: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(0));
+          this_thread::sleep_for(chrono::milliseconds(100));
+          //FUTURE: how to not hardcode the # of milliseconds...
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

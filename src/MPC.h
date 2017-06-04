@@ -11,6 +11,7 @@ class MPC {
   MPC();
   size_t N_;
   double dt_;
+  double Lf_;
 
   virtual ~MPC();
 

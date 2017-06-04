@@ -6,7 +6,7 @@
 using CppAD::AD;
 
 // Set the timestep length and duration
-size_t N = 25;
+size_t N = 15;
 double dt = 0.05;
 
 double ref_cte = 0;
@@ -46,9 +46,10 @@ class FG_eval {
     }
 
     cost_delta = fg[0] - cost_delta;
-    cout << "cost based on the reference state: " << cost_delta << endl;
+    // cout << "cost based on the reference state: " << cost_delta << endl;
 
     // Minimize the use of actuators.
+    // TODO: why is this always 0?
     for (int i = 0; i < N - 1; i++) {
       fg[0] += CppAD::pow(vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i], 2);
@@ -64,7 +65,7 @@ class FG_eval {
     }
 
     cost_delta = fg[0] - cost_delta;
-    // cout << "cost based on gap between sequential actuations: " << cost_delta << endl;
+    cout << "cost based on gap between sequential actuations: " << cost_delta << endl;
 
     // Initial constraints
     //
@@ -131,6 +132,7 @@ class FG_eval {
 MPC::MPC() {
 N_ = N;
 dt_ = dt;
+Lf_ = Lf;
 
 // double ref_cte = 0;
 // double ref_epsi = 0;
