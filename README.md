@@ -2,6 +2,37 @@
 Self-Driving Car Engineer Nanodegree Program
 
 ---
+## Student discussion
+### The Model: Student describes their model in detail. This includes the state, actuators and update equations.
+
+The model used in this project is the same as discussed in the lectures: the state consists of the car's x and y positions, velocity, and orientation, along with cross-track error cte and orientation error epsi. Two actuators can be used to influence the car's movement: a throttle (that represents a combination of forward/reverse gas plus the break) and the steering.
+
+The model of the car's movement is the simple "kinematic" model discussed in the lectures, which do not take into account complexities like tires slipping. The x, y, velocity, and orientation get updated at each time step assuming constant velocity and steering over that time period:
+
+x1 = x0 + v0*cos(psi0)*dt
+y1 = y0 + v0*sin(psi0)*dt
+v1 = v0 + acceleration0*dt
+psi1 = psi0 + v0*delta0/Lf*dt
+
+Of those, the orientation is not obvious - the change in orientation is proportional to the velocity, steering angle, and time, but also dependent on the size of the car's wheelbase, so it's adjusted by a constant factor that is calibrated per car: Cf.
+
+The errors, cte and epsi, are updated based on where the car is vs where it's supposed to be. For cte, the desired position is to follow a path, which is estimated by a polynomial function. For epsi, the desired orientation is the tangent to that path, which can be calculated as the arctangent of the derivative of that polynomial function.
+
+Besides this model, there are several constraints added, such as the max steering angles and throttle the car is capable of.
+
+
+### Timestep Length and Elapsed Duration (N & dt): Student discusses the reasoning behind the chosen N (timestep length) and dt (elapsed duration between timesteps) values. Additionally the student details the previous values tried.
+
+The final N and dt were the same as the quiz, but I arrived at them after trying other values. When at first my model was performing poorly, I tried to increase the number of points to 100, because that would predict further into the future and arrive at a better solution. However, this was not processing fast enough and the car performed poorly. At some point I reduced the number of points to 15 so that it could process faster because I hoped this would result in minimal delay, but once I introduced latency and had to solve for that, this yielded no advantage and I raised N to 25. I also tried larger timesteps such as 0.1 to have the solver consider points further down the road, but this resulted in too infrequent actuations and an out of control car. Eventually through such trial and error I settled onto N=25 and dt=0.05.
+
+### Polynomial Fitting and MPC Preprocessing: A polynomial is fitted to waypoints. If the student preprocesses waypoints, the vehicle state, and/or actuators prior to the MPC procedure it is described.
+
+The only preprocessing done before fitting was to orient everything in the car's frame of reference, as this is what was required by the simulator to render green and yellow lines. It is also worth noting some "postprocessing" which was multiplying the steering angle by -1. I think this is due to the convention by which epsi is defined, as I questioned on the forum here: https://discussions.udacity.com/t/cross-tracking-and-orientation-error/252891
+
+### Model Predictive Control with Latency: The student implements Model Predictive Control that handles a 100 millisecond latency. Student provides details on how they deal with latency.
+
+I dealt with latency by using the kinematic model equations specified above to project from the car's current state to its state 100ms into the future, then determining the actuations to take. The idea is, by the time the car actually takes that action, it will be close to that projected state and the actuation would be appropriate.
+
 
 ## Dependencies
 

@@ -117,8 +117,8 @@ int main() {
           vector<double> ptsx_car;
           vector<double> ptsy_car;
           for(int i = 0; i < ptsx.size(); ++i) {
-            ptsx_car.push_back( (ptsx[i] - x) * cos(psi) + (ptsy[i] - y) * sin(psi) );
-            ptsy_car.push_back( (ptsy[i] - y) * cos(psi) - (ptsx[i] - x) * sin(psi) );
+            ptsx_car.push_back((ptsx[i] - x) * cos(psi) + (ptsy[i] - y) * sin(psi));
+            ptsy_car.push_back((ptsy[i] - y) * cos(psi) - (ptsx[i] - x) * sin(psi));
           }
 
 

@@ -45,7 +45,7 @@ class FG_eval {
     }
 
     // Minimize the use of actuators.
-    // TODO: why is this always 0?
+    // FUTURE: why can't you effectively print from here? this prints as zero but it has effect on cost
     for (int i = 0; i < N - 1; i++) {
       fg[0] += 100*CppAD::pow(vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i], 2);
